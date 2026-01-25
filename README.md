@@ -38,6 +38,7 @@ The about a Rainwater Utilization Rate System
 
 * **自动校准**：后台逻辑会在文件解析时自动将数值四舍五入至 1 位小数。
 * **动态模板**：一键生成符合格式要求的 `.xlsx` 模板文件。
+
 ![img_3.png](img_3.png)
 ---
 
