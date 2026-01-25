@@ -1,12 +1,10 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from datetime import timedelta
-import csv
 import io
-import os
 from flask_sqlalchemy import SQLAlchemy
 import pymysql
-import openpyxl  # 在文件顶部添加引用
 from flask import send_file
+import openpyxl  # 在文件顶部添加引用
 
 # 必须在初始化前调用
 pymysql.install_as_MySQLdb()
@@ -138,6 +136,7 @@ def download_template():
         as_attachment=True,
         download_name='rain_data_template.xlsx'
     )
+
 
 @app.route('/settings')
 def settings(): return render_template('settings.html')
@@ -287,6 +286,7 @@ def get_all_stats():
         }
     })
 
+
 @app.route('/api/add', methods=['POST'])
 def add():
     new_record = RainData(
@@ -323,9 +323,6 @@ def delete(id):
     return jsonify({"status": "success"})
 
 
-import openpyxl  # 在文件顶部添加引用
-
-
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
     file = request.files.get('file')
@@ -344,21 +341,23 @@ def upload_file():
             if not row or row[0] is None:
                 continue
 
+            # 精度控制核心逻辑：提取数据并统一四舍五入保留1位小数
             record = RainData(
                 year=int(row[0]),
-                total=float(row[1] or 0),
-                overflow=float(row[2] or 0),
-                car_wash=float(row[3] or 0) if len(row) > 3 else 0,
-                irrigation=float(row[4] or 0) if len(row) > 4 else 0
+                total=round(float(row[1] or 0), 1),
+                overflow=round(float(row[2] or 0), 1),
+                car_wash=round(float(row[3] or 0), 1) if len(row) > 3 else 0.0,
+                irrigation=round(float(row[4] or 0), 1) if len(row) > 4 else 0.0
             )
             db.session.add(record)
             count += 1
 
         db.session.commit()
-        return jsonify({"status": "success", "message": f"成功从 Excel 导入 {count} 条数据"})
+        return jsonify({"status": "success", "message": f"成功从 Excel 导入 {count} 条数据 (已自动修约至1位小数)"})
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": f"解析失败: {str(e)}"}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
