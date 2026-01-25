@@ -24,6 +24,7 @@ The about a Rainwater Utilization Rate System
 
 * **截留率标签**：根据降雨量与溢流量自动计算，通过蓝色圆角标签直观显示。
 * **快速录入**：顶部集成表单，支持 0.1mm 精度的即时数据提交。
+
 ![img_2.png](img_2.png)
 
 ### 3. 统计中心 (Data Ledger)
