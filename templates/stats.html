@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>统计中心 - 雨水利用深度分析</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        :root { --sidebar-width: 240px; }
+
+        /* 保持全站一致的固定侧边栏布局，防止位移 */
+        body { background: #f4f6f9; display: flex; height: 100vh; overflow: hidden; margin: 0; font-family: "Segoe UI", sans-serif; }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            background: #212529;
+            color: white;
+            flex-shrink: 0;
+            position: fixed; /* 固定位置 */
+            height: 100vh;
+            z-index: 1000;
+        }
+        .sidebar-header { padding: 20px; font-size: 1.1rem; background: #1a1d20; border-bottom: 1px solid #333; font-weight: bold; }
+        .nav-link { color: #adb5bd; padding: 15px 20px; text-decoration: none; display: block; border-left: 4px solid transparent; }
+        .nav-link:hover { background: #2c3136; color: white; }
+        .nav-link.active { background: #2c3136; color: white; border-left-color: #0d6efd; }
+
+        /* 右侧主内容区：增加左边距避开侧边栏 */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            overflow-y: auto;
+            padding: 25px;
+            background: #0f172a;
+        }
+
+        .chart-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 20px; height: 100%; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+        .chart-title { font-size: 0.95rem; color: #38bdf8; margin-bottom: 15px; font-weight: bold; border-left: 4px solid #38bdf8; padding-left: 10px; }
+        .chart-box { width: 100%; height: 350px; }
+
+        .stat-card { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid #334155; border-radius: 12px; padding: 20px; text-align: center; }
+        .stat-label { color: #94a3b8; font-size: 0.8rem; margin-bottom: 5px; }
+        .stat-value { font-size: 1.8rem; font-weight: 800; color: #fff; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-header">🌧️ 雨水利用管理</div>
+    <nav class="mt-3">
+        <a href="/" class="nav-link">📁 降雨量台账</a>
+        <a href="/stats" class="nav-link active">📊 统计中心</a>
+        <a href="/import_page" class="nav-link">📤 上传中心</a>
+        <a href="/settings" class="nav-link">⚙️ 后台设置</a>
+        <a href="javascript:void(0)" onclick="confirmLogout()" class="nav-link text-warning"><i class="bi bi-box-arrow-right"></i> 退出登录</a>
+    </nav>
+</div>
+
+<div class="main-content">
+    <div class="row g-4 mb-4" id="statsHeader"></div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="chart-card">
+                <div class="chart-title">ANNUAL PRECIPITATION TREND / 年度降雨趋势</div>
+                <div id="barChart" class="chart-box"></div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="chart-card">
+                <div class="chart-title">SYSTEM EFFICIENCY / 资源捕获率</div>
+                <div id="gaugeChart" class="chart-box"></div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="chart-card">
+                <div class="chart-title">RESOURCE ALLOCATION / 利用构成</div>
+                <div id="pieChart" class="chart-box"></div>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="chart-card">
+                <div class="chart-title">PERFORMANCE RADAR / 最新年度性能评估</div>
+                <div id="radarChart" class="chart-box"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let myCharts = {};
+    async function confirmLogout() {
+    const result = await Swal.fire({
+        title: '确定要退出系统吗？',
+        text: "退出后需要重新登录才能查看数据",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3182ce',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '确定退出',
+        cancelButtonText: '取消',
+        heightAuto: false,     // 防止页面跳动
+        scrollbarPadding: false // 防止菜单位移
+    });
+
+    if (result.isConfirmed) {
+        window.location.href = '/logout_page';
+    }
+}
+
+    async function loadStats() {
+        try {
+            const res = await fetch('/api/data');
+            const data = await res.json();
+            const records = data.records;
+            const s = data.stats;
+
+            document.getElementById('statsHeader').innerHTML = `
+                <div class="col-md-4"><div class="stat-card"><div class="stat-label">年均降雨量</div><div class="stat-value">${s.avg_rain} mm</div></div></div>
+                <div class="col-md-4"><div class="stat-card"><div class="stat-label">总体截留率</div><div class="stat-value" style="color:#2ecc71">${s.avg_rate}%</div></div></div>
+                <div class="col-md-4"><div class="stat-card"><div class="stat-label">累计回用总量</div><div class="stat-value" style="color:#38bdf8">${s.total_reuse} m³</div></div></div>
+            `;
+
+            // 1. 直方图
+            myCharts.bar = echarts.init(document.getElementById('barChart'), 'dark');
+            myCharts.bar.setOption({
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'axis' },
+                xAxis: { type: 'category', data: records.map(r => r.year) },
+                yAxis: { splitLine: { lineStyle: { color: '#334155' } } },
+                series: [{
+                    name: '降雨量', type: 'bar', barWidth: '35%',
+                    itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{offset: 0, color: '#0ea5e9'}, {offset: 1, color: '#2563eb'}]) },
+                    data: records.map(r => r.total)
+                }]
+            });
+
+            // 2. 动态仪表盘
+            myCharts.gauge = echarts.init(document.getElementById('gaugeChart'), 'dark');
+            myCharts.gauge.setOption({
+                backgroundColor: 'transparent',
+                series: [{
+                    type: 'gauge', startAngle: 200, endAngle: -20, min: 0, max: 100,
+                    progress: { show: true, width: 12, itemStyle: { color: '#2ecc71' } },
+                    axisLine: { lineStyle: { width: 12, color: [[1, '#334155']] } },
+                    axisLabel: { distance: 20, color: '#94a3b8', fontSize: 10 },
+                    anchor: { show: false }, title: { show: false },
+                    detail: { valueAnimation: true, offsetCenter: [0, '30%'], fontSize: 24, color: '#fff', formatter: '{value}%' },
+                    data: [{ value: s.avg_rate }]
+                }]
+            });
+
+            // 3. 构成环形饼图
+            myCharts.pie = echarts.init(document.getElementById('pieChart'), 'dark');
+            const over = records.reduce((a, b) => a + b.overflow, 0);
+            const car = records.reduce((a, b) => a + b.car_wash, 0);
+            const irr = records.reduce((a, b) => a + b.irrigation, 0);
+            myCharts.pie.setOption({
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'item' },
+                legend: { bottom: '0', textStyle: { color: '#94a3b8' } },
+                series: [{
+                    type: 'pie', radius: ['40%', '70%'], avoidLabelOverlap: false,
+                    itemStyle: { borderRadius: 10, borderColor: '#1e293b', borderWidth: 2 },
+                    label: { show: false },
+                    data: [
+                        { value: over.toFixed(1), name: '溢流', itemStyle: {color: '#ef4444'} },
+                        { value: car.toFixed(1), name: '洗车', itemStyle: {color: '#f59e0b'} },
+                        { value: irr.toFixed(1), name: '灌溉', itemStyle: {color: '#10b981'} }
+                    ]
+                }]
+            });
+
+            // 4. 雷达图
+            const latest = records[records.length - 1] || {total:0, rate_num:0, car_wash:0, irrigation:0, overflow:0};
+            myCharts.radar = echarts.init(document.getElementById('radarChart'), 'dark');
+            myCharts.radar.setOption({
+                backgroundColor: 'transparent',
+                radar: {
+                    indicator: [
+                        { name: '降雨强度', max: 200 },
+                        { name: '截留效率', max: 100 },
+                        { name: '洗车利用', max: 50 },
+                        { name: '绿化灌溉', max: 100 },
+                        { name: '径流控制', max: 100 }
+                    ],
+                    splitArea: { show: false },
+                    axisLine: { lineStyle: { color: '#475569' } }
+                },
+                series: [{
+                    type: 'radar',
+                    data: [{
+                        value: [latest.total, latest.rate_num, latest.car_wash, latest.irrigation, 100 - (latest.total ? (latest.overflow/latest.total*100) : 0)],
+                        name: '年度表现',
+                        areaStyle: { color: 'rgba(56, 189, 248, 0.4)' },
+                        lineStyle: { color: '#38bdf8', width: 2 }
+                    }]
+                }]
+            });
+        } catch (e) {
+            console.error("加载图表数据失败:", e);
+        }
+    }
+
+    window.onload = loadStats;
+    window.onresize = () => Object.values(myCharts).forEach(c => c.resize());
+</script>
+</body>
+</html>

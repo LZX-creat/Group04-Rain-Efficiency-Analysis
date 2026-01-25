@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>雨水利用管理系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<style>
+    :root { --sidebar-width: 240px; }
+
+    /* 核心修复：防止弹窗导致 body 偏移 */
+    body.swal2-shown { padding-right: 0 !important; }
+
+    body { background: #f0f2f5; display: flex; height: 100vh; overflow: hidden; margin: 0; font-family: -apple-system, "Noto Sans SC", sans-serif; }
+
+    /* 侧边栏固定，彻底隔离弹窗干扰 */
+    .sidebar {
+        width: var(--sidebar-width);
+        background: #212529;
+        color: white;
+        flex-shrink: 0;
+        position: fixed;
+        height: 100vh;
+        z-index: 1000;
+    }
+
+    .sidebar-header { padding: 20px; font-size: 1.1rem; background: #1a202c; font-weight: bold; }
+    .nav-link { color: #adb5bd; padding: 15px 20px; text-decoration: none; display: block; border-left: 4px solid transparent; }
+    .nav-link.active, .nav-link:hover { background: #2d3748; color: white; border-left-color: #3182ce; }
+
+    /* 主容器偏移出侧边栏宽度 */
+    .main-container {
+        flex: 1;
+        margin-left: var(--sidebar-width);
+        overflow-y: auto;
+        padding: 24px 32px;
+    }
+
+    .section-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); margin-bottom: 24px; padding: 20px; }
+    .section-title { font-size: 0.95rem; font-weight: 800; color: #4a5568; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .table-container { background: #fff; border-radius: 12px; border: 1px solid #edf2f7; padding: 10px; }
+    .rate-tag { padding: 4px 12px; border-radius: 50px; font-size: 0.8rem; background: #ebf8ff; color: #2b6cb0; border: 1px solid #90cdf4; font-weight: bold; }
+    .btn-group-action .btn { width: 32px; height: 32px; padding: 0; border-radius: 8px; margin: 0 2px; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-header">🌧️ 雨水利用管理</div>
+    <nav class="mt-3">
+        <a href="/" class="nav-link active">📁 降雨量台账</a>
+        <a href="/stats" class="nav-link">📊 统计中心</a>
+        <a href="/import_page" class="nav-link">📤 上传中心</a>
+        <a href="/settings" class="nav-link">⚙️ 后台设置</a>
+        <a href="javascript:void(0)" onclick="confirmLogout()" class="nav-link text-warning"><i class="bi bi-box-arrow-right"></i> 退出登录</a>
+    </nav>
+</div>
+
+<div class="main-container">
+    <div class="section-card">
+        <div class="section-title"><i class="bi bi-plus-circle"></i> 快速录入</div>
+        <form id="addForm" class="row g-3">
+            <div class="col-md-2"><input type="number" name="year" class="form-control" placeholder="年份" required></div>
+            <div class="col-md-2"><input type="number" step="0.1" name="total" class="form-control" placeholder="降雨(mm)" required></div>
+            <div class="col-md-2"><input type="number" step="0.1" name="overflow" class="form-control" placeholder="溢流(mm)" required></div>
+            <div class="col-md-2"><input type="number" step="0.1" name="car_wash" class="form-control" placeholder="洗车(m³)"></div>
+            <div class="col-md-2"><input type="number" step="0.1" name="irrigation" class="form-control" placeholder="浇灌(m³)"></div>
+            <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">保存</button></div>
+        </form>
+    </div>
+
+    <div class="section-card">
+        <div class="section-title"><i class="bi bi-filter"></i> 智能筛选</div>
+        <div class="row g-3">
+            <div class="col-md-2"><input type="number" id="searchYear" class="form-control" placeholder="年份"></div>
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text bg-white">降雨范围</span>
+                    <input type="number" id="rainMin" class="form-control" placeholder="最小">
+                    <input type="number" id="rainMax" class="form-control" placeholder="最大">
+                </div>
+            </div>
+            <div class="col-md-2"><button class="btn btn-dark w-100" onclick="loadData(1)">搜索</button></div>
+            <div class="col-md-2"><button class="btn btn-outline-secondary w-100" onclick="resetSearch()">重置</button></div>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>年份</th><th>总降雨 (mm)</th><th>溢流量 (mm)</th><th>利用量 (m³)</th><th>截留率</th><th class="text-center">操作</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+        <div class="d-flex justify-content-between align-items-center mt-3 p-2">
+            <div id="pageInfo" class="small text-muted"></div>
+            <nav><ul class="pagination pagination-sm mb-0" id="pagination"></ul></nav>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="viewModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5>数据详情</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body" id="viewBody"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form id="editForm" class="modal-content">
+            <input type="hidden" name="id" id="editId">
+            <div class="modal-header"><h5>编辑记录</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body row g-3">
+                <div class="col-12"><label>总降雨 (mm)</label><input type="number" step="0.1" name="total" id="editTotal" class="form-control" required></div>
+                <div class="col-12"><label>溢流量 (mm)</label><input type="number" step="0.1" name="overflow" id="editOverflow" class="form-control" required></div>
+                <div class="col-6"><label>洗车 (m³)</label><input type="number" step="0.1" name="car_wash" id="editCar" class="form-control"></div>
+                <div class="col-6"><label>灌溉 (m³)</label><input type="number" step="0.1" name="irrigation" id="editIrr" class="form-control"></div>
+            </div>
+            <div class="modal-footer"><button type="submit" class="btn btn-primary">更新</button></div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let currentPage = 1;
+    const pageSize = 5;
+    let recordsCache = [];
+
+    async function loadData(page = 1) {
+        currentPage = page;
+        const year = document.getElementById('searchYear').value || '';
+        const min = document.getElementById('rainMin').value || '';
+        const max = document.getElementById('rainMax').value || '';
+        const url = `/api/data?year=${year}&min=${min}&max=${max}`;
+
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            recordsCache = data.records;
+            renderTable(data.records);
+            renderPagination(data.total, page);
+            document.getElementById('pageInfo').innerText = `找到 ${data.total} 条记录`;
+        } catch (err) {
+            console.error("加载失败:", err);
+        }
+    }
+
+    async function confirmLogout() {
+    const result = await Swal.fire({
+        title: '确定要退出系统吗？',
+        text: "退出后需要重新登录才能查看数据",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3182ce',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '确定退出',
+        cancelButtonText: '取消',
+        heightAuto: false,     // 防止页面跳动
+        scrollbarPadding: false // 防止菜单位移
+    });
+
+    if (result.isConfirmed) {
+        window.location.href = '/logout_page';
+    }
+}
+
+    function renderTable(data) {
+        const body = document.getElementById('tableBody');
+        if (!data || data.length === 0) {
+            body.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">未找到相关数据</td></tr>';
+            return;
+        }
+        body.innerHTML = data.map(r => `
+            <tr>
+                <td class="fw-bold">${r.year}</td>
+                <td>${r.total}</td>
+                <td class="text-danger">${r.overflow}</td>
+                <td>${(r.car_wash + r.irrigation).toFixed(1)}</td>
+                <td><span class="rate-tag">${r.rate_str}</span></td>
+                <td class="text-center">
+                    <div class="btn-group-action">
+                        <button class="btn btn-outline-success btn-sm" onclick="viewDetail(${r.id})"><i class="bi bi-eye"></i></button>
+                        <button class="btn btn-outline-primary btn-sm" onclick="openEdit(${r.id})"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="deleteRecord(${r.id})"><i class="bi bi-trash"></i></button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function resetSearch() {
+        document.getElementById('searchYear').value = '';
+        document.getElementById('rainMin').value = '';
+        document.getElementById('rainMax').value = '';
+        loadData(1);
+    }
+
+    function viewDetail(id) {
+        const r = recordsCache.find(x => x.id === id);
+        document.getElementById('viewBody').innerHTML = `
+            <ul class="list-group">
+                <li class="list-group-item">年份: ${r.year}</li>
+                <li class="list-group-item">总降雨: ${r.total} mm</li>
+                <li class="list-group-item">溢流量: ${r.overflow} mm</li>
+                <li class="list-group-item">利用率: ${r.rate_str}</li>
+            </ul>`;
+        new bootstrap.Modal('#viewModal').show();
+    }
+
+    function openEdit(id) {
+        const r = recordsCache.find(x => x.id === id);
+        document.getElementById('editId').value = r.id;
+        document.getElementById('editTotal').value = r.total;
+        document.getElementById('editOverflow').value = r.overflow;
+        document.getElementById('editCar').value = r.car_wash;
+        document.getElementById('editIrr').value = r.irrigation;
+        new bootstrap.Modal('#editModal').show();
+    }
+
+    // 编辑更新逻辑：增加成功提示
+    document.getElementById('editForm').onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+            await fetch(`/api/edit/${document.getElementById('editId').value}`, {method:'POST', body: new FormData(e.target)});
+            bootstrap.Modal.getInstance('#editModal').hide();
+
+            Swal.fire({
+                title: '修改成功',
+                icon: 'success',
+                timer: 1000,
+                showConfirmButton: false,
+                heightAuto: false,
+                scrollbarPadding: false
+            });
+
+            loadData(currentPage);
+        } catch (err) {
+            Swal.fire('失败', '更新数据时发生错误', 'error');
+        }
+    };
+
+    // 删除提示：SweetAlert2
+    async function deleteRecord(id) {
+        const result = await Swal.fire({
+            title: '确定要删除吗？',
+            text: "删除后记录将永久移除！",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: '确定删除',
+            cancelButtonText: '取消',
+            heightAuto: false,
+            scrollbarPadding: false
+        });
+
+        if (result.isConfirmed) {
+            try {
+                await fetch(`/api/delete/${id}`, {method:'POST'});
+                Swal.fire({
+                    title: '已删除',
+                    icon: 'success',
+                    timer: 1000,
+                    showConfirmButton: false,
+                    heightAuto: false,
+                    scrollbarPadding: false
+                });
+                loadData(1);
+            } catch (err) {
+                Swal.fire('失败', '删除失败', 'error');
+            }
+        }
+    }
+
+    // 快速录入：增加成功提示
+    document.getElementById('addForm').onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+            await fetch('/api/add', {method:'POST', body: new FormData(e.target)});
+            e.target.reset();
+
+            Swal.fire({
+                title: '保存成功',
+                icon: 'success',
+                timer: 1000,
+                showConfirmButton: false,
+                heightAuto: false,
+                scrollbarPadding: false
+            });
+
+            loadData(1);
+        } catch (err) {
+            Swal.fire('失败', '保存失败', 'error');
+        }
+    };
+
+    function renderPagination(total, current) {
+        const pages = Math.ceil(total / pageSize) || 1;
+        let html = '';
+        for(let i=1; i<=pages; i++) {
+            html += `<li class="page-item ${i===current?'active':''}"><a class="page-link" href="javascript:void(0)" onclick="loadData(${i})">${i}</a></li>`;
+        }
+        document.getElementById('pagination').innerHTML = html;
+    }
+
+    window.onload = () => loadData(1);
+</script>
+</body>
+</html>
