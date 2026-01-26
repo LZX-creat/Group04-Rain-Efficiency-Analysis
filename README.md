@@ -24,10 +24,12 @@ The about a Rainwater Utilization Rate System
 
 * **截留率标签**：根据降雨量与溢流量自动计算，通过蓝色圆角标签直观显示。
 * **快速录入**：顶部集成表单，支持 0.1mm 精度的即时数据提交。
+
 ![img_2.png](img_2.png)
 
 ### 3. 统计中心 (Data Ledger)
 数据可视化，每年总降水量统计
+
 ![img_4.png](img_4.png)
 
 ### 4. 上传中心 (Upload Center)
@@ -36,6 +38,7 @@ The about a Rainwater Utilization Rate System
 
 * **自动校准**：后台逻辑会在文件解析时自动将数值四舍五入至 1 位小数。
 * **动态模板**：一键生成符合格式要求的 `.xlsx` 模板文件。
+
 ![img_3.png](img_3.png)
 ---
 
