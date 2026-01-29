@@ -7,6 +7,13 @@ The about a Rainwater Utilization Rate System
 
 ---
 
+## 访问相关
+访问地址：https://foundrous-dominick-interhemal.ngrok-free.dev
+账号密码：admin/admin123
+
+## 数据库 MySQL
+必须本地或者云端启动 MySQL 数据库服务，才能正常跑通项目。
+
 ## 📸 界面预览
 
 ### 系统登录页面
