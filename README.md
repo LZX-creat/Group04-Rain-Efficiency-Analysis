@@ -8,7 +8,7 @@ The about a Rainwater Utilization Rate System
 ---
 
 ## 访问相关
-访问地址：https://foundrous-dominick-interhemal.ngrok-free.dev
+访问地址：https://foundrous-dominick-interhemal.ngrok-free.dev （此服务站点可能不稳定）
 账号密码：admin/admin123
 
 ## 数据库 MySQL
